@@ -1,66 +1,101 @@
 import altair as alt
 import pandas as pd
 import streamlit as st
+import pydeck as pdk
+import plotly.express as px
+import folium
+from folium.plugins import Draw
+from folium import Popup
+from streamlit_folium import st_folium
+import os
+
+# from sqlalchemy import create_engine
+# import postgresql
+# import psycopg2
+
+# engine = create_engine(f"postgresql+psycopg2://{user}:{pw}@{ip}:5432/groundwater")
 
 # Show the page title and description.
-st.set_page_config(page_title="Movies dataset", page_icon="🎬")
-st.title("🎬 Movies dataset")
-st.write(
+# Initialize Streamlit app layout
+
+st.set_page_config(page_title="Station Map", page_icon="🌎")
+st.title("Utah Geological Survey")
+
+st.sidebar.markdown('''
+# Sections
+- [Utah Flux Network Stations](#utah-flux-network-stations)
+- [Data View](#data-view)
+''', unsafe_allow_html=True)
+
+st.header('Utah Flux Network Stations')
+
+ufn_url = "https://geology.utah.gov/utah-flux-network"
+st.write(f"[The Utah Flux Network]({ufn_url})")
+
+# Load the station data
+stations_file_path = 'data/AmeriFlux-sites.csv'
+stations_df = pd.read_csv(stations_file_path)
+
+# Prepare the station data for Pydeck
+stations_df['Site'] = stations_df['Site ID']
+
+# Define a function to create the popup HTML
+def create_popup_html(row):
+    return f"""
+    <b>Site ID:</b> {row['Site ID']}<br>
+    <b>Name:</b> {row['Name']}<br>
     """
-    This app visualizes data from [The Movie Database (TMDB)](https://www.kaggle.com/datasets/tmdb/tmdb-movie-metadata).
-    It shows which movie genre performed best at the box office over the years. Just 
-    click on the widgets below to explore!
-    """
-)
 
+# Create a Folium map
+m = folium.Map(location=[stations_df['latitude'].mean(), 
+                         stations_df['longitude'].mean()], 
+               zoom_start=6)
 
-# Load the data from a CSV. We're caching this so it doesn't reload every time the app
-# reruns (e.g. if the user interacts with the widgets).
-@st.cache_data
-def load_data():
-    df = pd.read_csv("data/movies_genres_summary.csv")
-    return df
+# Add markers to the map
+for _, row in stations_df.iterrows():
+    popup_html = create_popup_html(row)
+    folium.Marker(
+        location=[row['latitude'], row['longitude']],
+        popup=Popup(popup_html, max_width=200),
+        tooltip=row['Site ID']
+    ).add_to(m)
 
+output = st_folium(m, width="100%", height=350,
+                   returned_objects=["last_object_clicked_tooltip"])
 
-df = load_data()
+st.header('Data View')
+# Handle navigation to the detailed station page
+selected_site = output['last_object_clicked_tooltip']
 
-# Show a multiselect widget with the genres using `st.multiselect`.
-genres = st.multiselect(
-    "Genres",
-    df.genre.unique(),
-    ["Action", "Adventure", "Biography", "Comedy", "Drama", "Horror"],
-)
+amfluxurl = "https://ameriflux.lbl.gov/sites/siteinfo/"
 
-# Show a slider widget with the years using `st.slider`.
-years = st.slider("Years", 1986, 2006, (2000, 2016))
+if selected_site:
+    datafile = f'data/{selected_site}_amfluxeddy.csv'
 
-# Filter the dataframe based on the widget input and reshape it.
-df_filtered = df[(df["genre"].isin(genres)) & (df["year"].between(years[0], years[1]))]
-df_reshaped = df_filtered.pivot_table(
-    index="year", columns="genre", values="gross", aggfunc="sum", fill_value=0
-)
-df_reshaped = df_reshaped.sort_values(by="year", ascending=False)
+    # Display additional information
+    site_info = stations_df[stations_df['Site ID'] == selected_site]
+    if not site_info.empty:
+        snm = site_info['Name'].values[0]
+        st.subheader(f"[{selected_site}: {snm}]({amfluxurl}{selected_site})")
+    else:
+        st.write("No additional information available for this site.")
 
+    if os.path.exists(datafile):  
+        # Load the time series data
+        data_file_path = f'data/{selected_site}_amfluxeddy.csv'
+        data_df = pd.read_csv(data_file_path)
 
-# Display the data as a table using `st.dataframe`.
-st.dataframe(
-    df_reshaped,
-    use_container_width=True,
-    column_config={"year": st.column_config.TextColumn("Year")},
-)
-
-# Display the data as an Altair chart using `st.altair_chart`.
-df_chart = pd.melt(
-    df_reshaped.reset_index(), id_vars="year", var_name="genre", value_name="gross"
-)
-chart = (
-    alt.Chart(df_chart)
-    .mark_line()
-    .encode(
-        x=alt.X("year:N", title="Year"),
-        y=alt.Y("gross:Q", title="Gross earnings ($)"),
-        color="genre:N",
-    )
-    .properties(height=320)
-)
-st.altair_chart(chart, use_container_width=True)
+        
+        # Filter data for the selected site
+        #site_data = data_df[data_df['station'] == selected_site]
+        tslist = ['CO2','H2O','TA_1_1_1']
+        tsparam = st.selectbox("Timeseries Parameter",
+                               data_df.columns, index=3
+                               )
+        
+        # Plot the timeseries data
+        fig = px.line(data_df, x='datetime_start', y=tsparam , 
+                      title=f"{tsparam} Levels at {selected_site}")
+        st.plotly_chart(fig)
+else:
+    st.write("Select a point on the map to view data")
