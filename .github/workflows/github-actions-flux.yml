@@ -1,3 +1,3 @@
-name: Set Env
-env:
-  URN: ${{ secrets.}}
+name: Hello world action
+env: 
+    dbip: ${{ secrets.ip }}
