@@ -6,3 +6,4 @@ folium
 bokeh
 streamlit_folium
 statsmodels
+geopandas
