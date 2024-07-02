@@ -1,6 +1,6 @@
-# 🎬 Movies dataset template
+# Utah Flux Network Data Dashboard
 
-A simple Streamlit app showing movie data from [The Movie Database (TMDB)](https://www.kaggle.com/datasets/tmdb/tmdb-movie-metadata). 
+Visualizing data from the Utah Geological Survey's [Utah Flux Network](https://geology.utah.gov/utah-flux-network). 
 
 [![Streamlit App](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://interactive-data-explorer-template.streamlit.app/)
 
