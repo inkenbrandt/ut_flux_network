@@ -122,7 +122,7 @@ with col1:
 
             # Plot the timeseries data
             fig = px.line(data_df, x='datetime_start', y=param_select[vio_parm][0] , 
-                        title=f"{tsparam} Levels at {selected_site}")
+                        title=f"{vio_parm} at {selected_site}")
             st.plotly_chart(fig)
 
 
@@ -189,9 +189,6 @@ with col2:
                 fig3 = px.scatter(ebal, y="LE + H", x="Rn - G", trendline="ols")
                 return fig3
 
-            vio_parm = st.selectbox("Parameter",
-                                param_select.keys(), index=0
-                                )
             make_violin(vio_parm)
 
             cont = st.container()
