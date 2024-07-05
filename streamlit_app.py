@@ -105,7 +105,7 @@ if selected_site:
             param_select.keys(), index=0
             )
 else:
-    vio_param = "Air Temperature"
+    vio_param = 'Air Temperature'
 col1, col2 = st.columns(2)
 
 with col1:
@@ -121,9 +121,13 @@ with col1:
             
             # Filter data for the selected site
             #site_data = data_df[data_df['station'] == selected_site]
+            plotparam = []
+            for parm in param_select[vio_parm][0]:
+                if parm in data_df.columns:
+                    plotparam.append(parm)
 
             # Plot the timeseries data
-            fig = px.line(data_df, x='datetime_start', y=data_df[param_select[vio_parm][0]], 
+            fig = px.line(data_df, x='datetime_start', y=plotparam, 
                         title=f"{vio_parm} at {selected_site}")
             st.plotly_chart(fig)
 
