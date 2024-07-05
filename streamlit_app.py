@@ -123,7 +123,7 @@ with col1:
             #site_data = data_df[data_df['station'] == selected_site]
 
             # Plot the timeseries data
-            fig = px.line(data_df, x='datetime_start', y=param_select[vio_parm][0] , 
+            fig = px.line(data_df, x='datetime_start', y=data_df[param_select[vio_parm][0]], 
                         title=f"{vio_parm} at {selected_site}")
             st.plotly_chart(fig)
 
