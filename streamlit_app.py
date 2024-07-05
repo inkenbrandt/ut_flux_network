@@ -104,6 +104,8 @@ if selected_site:
     vio_parm = st.selectbox("Parameter",
             param_select.keys(), index=0
             )
+else:
+    vio_param = "Air Temperature"
 col1, col2 = st.columns(2)
 
 with col1:
