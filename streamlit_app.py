@@ -122,6 +122,7 @@ with col2:
         st.plotly_chart(fig)
     else:
         st.write("Select a point on the map to view data")
+        molist = data['datetime_start'].dt.month_name().unique()
 
 cont = st.container()
 allvals = st.checkbox("Select All", key=23)
