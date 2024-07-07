@@ -28,7 +28,7 @@ param_select = {'Air Temperature':[['TA_1_1_1','TA_1_4_1','TA_1_2_1','TA_1_3_1',
                 'Relative Humidity':[['RH_1_1_1','RH_1_2_1','RH_1_3_1',],
                                     "Relative Humidity (%)","RH Sensor",
                                     ],
-                'Energy Components':[['LE','H','G'],'Energy (W/m²)',
+                'Energy Components':[['LE','H','G','NETRAD'],'Energy (W/m²)',
                                     'Energy Component',
                                     ]                   
                 }
@@ -39,6 +39,24 @@ def stat_data():
     df.reset_index(inplace=True)
     df.replace(-9999, None, inplace=True)
     return df
+
+@st.cache_data
+def single_station(data, selected_site, sel_variables):
+    plotparam = []
+    for parm in sel_variables:
+        if parm in data.columns:
+            plotparam.append(parm)
+
+    df = data.set_index(['datetime_start'])
+    df = df[df['station']==selected_site][plotparam]
+    #df['datetime_start'] = pd.to_datetime(['datetime_start'])
+    
+    return df,plotparam
+
+@st.cache_data
+def three_hr(df):
+    df3 = df.resample('3h').mean()
+    return df3
 
 st.set_page_config(page_title="UFN", page_icon="🌎",
                    layout="wide")
@@ -115,19 +133,15 @@ with col1:
         # Display additional information
 
         if selected_site in data.station.unique():  
-
-            data_df = data[data['station']==selected_site]
-            molist = list(data_df['datetime_start'].dt.month_name().unique())
-            
+            sel_variables = param_select[vio_parm][0]
+            data_df, plotparam = single_station(data, selected_site,sel_variables)
             # Filter data for the selected site
             #site_data = data_df[data_df['station'] == selected_site]
-            plotparam = []
-            for parm in param_select[vio_parm][0]:
-                if parm in data_df.columns:
-                    plotparam.append(parm)
+
 
             # Plot the timeseries data
-            fig = px.line(data_df, x='datetime_start', y=plotparam, 
+            df3 = three_hr(data_df)
+            fig = px.line(df3, x=df3.index, y=plotparam, 
                         title=f"{vio_parm} at {selected_site}")
             st.plotly_chart(fig)
 
@@ -137,12 +151,11 @@ with col2:
     # Handle navigation to the detailed station page
      
     if selected_site:
-        data = stat_data()
         # Display additional information
 
         if selected_site in data.station.unique():  
 
-            molist = list(data_df['datetime_start'].dt.month_name().unique())
+            molist = list(data_df.index.month_name().unique())
             
             container = {}
             allp = {}
@@ -152,7 +165,11 @@ with col2:
             fig1 = {}
 
             @st.cache_resource
-            def voi(stat_temp,param):
+            def vio(cols, param= 'Air Temperature'):
+
+                stat_temp[param] = data_df.reset_index().melt(id_vars=['datetime_start'])
+
+
                 fig = px.violin(stat_temp[param], y="value", x="variable", 
                                     box=True, hover_data=stat_temp[param].columns,
                                     labels = {"value": param_select[param][1],
@@ -162,40 +179,21 @@ with col2:
                                     )
                 return fig
 
-            def make_violin(param='Air Temperature'):
-                
-                container[param] = st.container()
-                allp[param] = st.checkbox("Select all", key=21)
-                
-                if allp[param]:
-                    selected_options[param] = container[param].multiselect("Select one or more options:",
-                        molist,molist)
-                else:
-                    selected_options[param] =  container[param].multiselect("Select one or more options:",
-                        molist)
 
-                tdf[param] = data_df[data_df['datetime_start'].dt.month_name().isin(selected_options[param])]
-                cols = []
-                for col in param_select[param][0]:
-                    if col in tdf[param].columns:
-                        cols.append(col)
-                print(cols)
-                stat_temp[param] = tdf[param][['datetime_start']+cols].melt(id_vars=['datetime_start'])
-
-                fig1[param] = voi(stat_temp,param)
-                st.plotly_chart(fig1[param])
+                
 
             @st.cache_resource
             def ebalance(ddf, sel_opts):
-                df_energy =  ddf[['datetime_start','G','LE','NETRAD','H']].dropna()
+                df_energy =  ddf[['G','LE','NETRAD','H']].dropna()
                 df_energy['Rn - G'] = df_energy['NETRAD'] - df_energy['G']
                 df_energy['LE + H'] = df_energy['H'] + df_energy['LE']
-                ebal = df_energy[df_energy['datetime_start'].dt.month_name().isin(sel_opts)]
-                ebal = ebal[ebal['datetime_start'].dt.hour.isin(range(6,21))]
+                ebal = df_energy[df_energy.index.month_name().isin(sel_opts)]
+                ebal = ebal[ebal.index.hour.isin(range(6,21))]
                 fig3 = px.scatter(ebal, y="LE + H", x="Rn - G", trendline="ols")
                 return fig3
 
-            make_violin(vio_parm)
+            fig = vio(plotparam, vio_parm)
+            st.plotly_chart(fig)
 
             cont = st.container()
             allvals = st.checkbox("Select All", key=23)
@@ -207,8 +205,8 @@ with col2:
                 sel_opts =  cont.multiselect("Select one or more options:",
                 molist, key=54)
 
-
-            fig3 = ebalance(data_df, sel_opts)
+            ebal_data, params = single_station(data,selected_site,['LE','H','G','NETRAD'])
+            fig3 = ebalance(ebal_data, sel_opts)
             st.plotly_chart(fig3)
 
         else:
